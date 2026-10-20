@@ -18,25 +18,18 @@ jobs:
       # Deps
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.3.0
 
-      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+      # mise does not auto-detect a Bob build for the ubuntu-26.04 runner image.
+      - run: echo "MISE_ERLANG_PRECOMPILED_OS=ubuntu-26.04" >> "$GITHUB_ENV"
         if: matrix.host == 'ubuntu-latest'
-        with:
-          # 27.3.4.18+ have no precompiled ERTS on beam-machine-universal (404).
-          otp-version: "27.3.4.17"
-          elixir-version: "1.18.3"
-          version-type: strict
 
-      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
-        if: matrix.host == 'macos-latest' || matrix.host == 'macos-14'
+      # Erlang, Elixir and Zig versions come from .tool-versions.
+      - uses: jdx/mise-action@fc42bcc7ddbf51124c30f95a877a0c5168a3bfde # v5.2.1
         with:
-          # 27.3.4.18+ have no precompiled ERTS on beam-machine-universal (404).
-          otp-version: "27.3.4.17"
-          elixir-version: "1.18.3"
-          version-type: strict
+          version: 2026.10.11
+        env:
+          MISE_ERLANG_COMPILE: "false"
 
-      - uses: goto-bus-stop/setup-zig@abea47f85e598557f500fa1fd2ab7464fcb39406 # v2.2.1
-        with:
-          version: ${{ matrix.zig }}
+      - run: mix local.hex --force && mix local.rebar --force
 
       - name: Set up Homebrew
         if: matrix.host == 'macos-latest' || matrix.host == 'macos-14'
@@ -46,7 +39,7 @@ jobs:
       - run: sudo apt-get -y install xz-utils
         if: matrix.host == 'ubuntu-latest'
 
-      # Elixir comes from setup-beam; brew elixir pulls a mismatched OTP.
+      # Elixir comes from mise; brew elixir pulls a mismatched OTP.
       - run: brew install xz
         if: matrix.host == 'macos-latest' || matrix.host == 'macos-14'
 
