@@ -66,6 +66,8 @@ defmodule Burrito.Steps.Patch.CopyERTSTest do
     test "finds .dll and .exe artifacts in a flat layout", %{tmp: tmp} do
       erts = Path.join(tmp, "erts")
       write(erts, "erts-16.0/bin/beam.smp", "beam")
+      write(erts, "erts-16.0/bin/beam.smp.dll", "not-a-nif")
+      write(erts, "erts-16.0/bin/erl.exe", "not-a-nif")
       dll = write(erts, "lib/crypto-5.6/priv/lib/crypto.dll", "crypto")
       exe = write(erts, "lib/os_mon-2.9/priv/bin/win32sysinfo.exe", "exe")
 
@@ -77,6 +79,8 @@ defmodule Burrito.Steps.Patch.CopyERTSTest do
       erts = Path.join(tmp, "erts")
       nested = Path.join(erts, "otp-28.0-windows-x86_64")
       write(nested, "erts-16.0/bin/beam.smp", "beam")
+      write(nested, "erts-16.0/bin/beam.smp.dll", "not-a-nif")
+      write(nested, "erts-16.0/bin/erl.exe", "not-a-nif")
       dll = write(nested, "lib/crypto-5.6/priv/lib/crypto.dll", "crypto")
       exe = write(nested, "lib/os_mon-2.9/priv/bin/win32sysinfo.exe", "exe")
 
