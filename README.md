@@ -299,7 +299,7 @@ targets: [
 
 Build qualifiers are a simple way to pass specific flags into the Burrito build pipeline. Here is a list of the supported qualifiers:
 
-* `custom_erts` - `binary()` or `URI.t()` that points to a custom tar.gz. See [Using custom ERTS builds](#using-custom-erts-builds) for more info.
+* `custom_erts` - `binary()` or `URI.t()` that points to a custom ERTS: a URL, a `.tar.gz` (or `.exe`) path, or a directory. See [Using custom ERTS builds](#using-custom-erts-builds) for more info.
 * `nif_cflags` - `binary()` String that is appended to the end of `CFLAGS` when recompiling NIFs for another target.
 * `nif_cxxflags` - `binary()` String that is appended to the end of `CXXFLAGS` when recompiling NIFs for another target.
 * `nif_env` - `list(tuple())` List of 2-tuples (strings) that define environment variables when recompiling NIFs for another target.
@@ -332,7 +332,7 @@ targets: [
 ]
 ```
 
-The `custom_erts` value should be a path to a local `.tar.gz` of a release from the Erlang source tree. The structure inside the archive should mirror:
+The `custom_erts` value can be a URL, a path to a local `.tar.gz` (or `.exe`), or a path to a directory, holding a release from the Erlang source tree. Burrito locates the ERTS root as the directory that contains `erts-X.Y.Z/`, so the archive may use either the wrapped layout below or the flat layout used by [erlef/otp_builds](https://github.com/erlef/otp_builds), where `erts-X.Y.Z/`, `lib/` and the rest sit directly at the TAR root:
 
 ```
 . (TAR Root)
@@ -344,6 +344,8 @@ The `custom_erts` value should be a path to a local `.tar.gz` of a release from 
   ├─ usr/
   └─ Install
 ```
+
+A NIF is replaced only when the custom ERTS ships the same application version as the host.
 
 You can easily build an archive like this by doing the following commands inside the [official Erlang source code](https://github.com/erlang/otp):
 

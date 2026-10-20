@@ -1,5 +1,10 @@
 # 🌯 Changelog
 
+## Unreleased
+
+* Changes:
+  * Fix NIF replacement for `custom_erts` tarballs with a flat layout (no top-level `otp-*/` dir); warn when a custom ERTS replaces no NIFs; remove stale host NIFs of a different extension. (#1)
+
 ## v1.5.0
 
 * Changes:
