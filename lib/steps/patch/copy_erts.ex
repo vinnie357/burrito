@@ -23,8 +23,37 @@ defmodule Burrito.Steps.Patch.CopyERTS do
     context
   end
 
+  @doc """
+  Locates the ERTS root (the parent of the `erts-*` dir) inside `erts_location`
+  and lists the NIF libraries and executables under its `lib/`.
+
+  Works for both the flat layout (`erts-*/`, `lib/`, ... at the top level) and
+  the `otp-*/` wrapped layout.
+  """
+  @spec nif_libraries(Path.t()) :: {:ok, {Path.t(), [Path.t()]}} | {:error, :erts_not_found}
+  def nif_libraries(erts_location) do
+    case find_erts_dir(erts_location) do
+      nil ->
+        {:error, :erts_not_found}
+
+      erts_dir ->
+        root = Path.dirname(erts_dir)
+        paths = Path.join([root, "lib", "**/*.{so,dll,exe}"]) |> Path.wildcard()
+        {:ok, {root, paths}}
+    end
+  end
+
   defp do_copy(erts_location, %Context{} = context) do
     Log.info(:step, "Replacing ERTS binaries...")
+
+    # Discover the custom ERTS before touching the release
+    {erts_root, to_copy} =
+      case nif_libraries(erts_location) do
+        {:ok, found} -> found
+        {:error, :erts_not_found} -> raise erts_not_found_message(erts_location)
+      end
+
+    unpacked_path = find_erts_dir(erts_location)
 
     # Clean out current bins
     dest_bin_path =
@@ -37,29 +66,32 @@ defmodule Burrito.Steps.Patch.CopyERTS do
     File.mkdir!(dest_bin_path)
 
     # Copy in new bins from unpacked ERTS
-    unpacked_path = recursively_find_dir([erts_location], ~r/^erts-.*$/)
-
     src_bin_path = Path.join(unpacked_path, ["bin/"])
 
     File.cp_r!(src_bin_path, dest_bin_path)
 
     # The ERTS comes with some pre-built NIFs, so we need to replace those
 
-    src_lib_path = recursively_find_dir([erts_location], ~r/^lib$/)
+    src_lib_path = Path.join(erts_root, "lib")
 
     dest_lib_path = Path.join(context.work_dir, ["lib/"]) |> Path.expand()
 
-    # List the DLL/SO files that come from our replacement ERTS
+    # The DLL/SO files in to_copy come from our replacement ERTS
     # The new ERTS is treated as the "authoritative" ERTS, some DLLs/SOs may exist in it
     # That do not exist in the host/source ERTS. We'll log when we replace a library file
-    to_copy =
-      Path.join(erts_location, "*/lib/**/*.{so,dll,exe}") |> Path.expand() |> Path.wildcard()
+    if to_copy == [] do
+      Log.warning(
+        :step,
+        "Custom ERTS at #{erts_location} provided no NIF libraries; the release keeps the host's NIFs"
+      )
+    end
 
     Enum.each(to_copy, fn file_to_copy ->
-      destination_file_path = String.replace(file_to_copy, src_lib_path, dest_lib_path)
+      destination_file_path =
+        Path.join(dest_lib_path, Path.relative_to(file_to_copy, src_lib_path))
 
       possible_file_to_replace =
-        String.replace_suffix(destination_file_path, Path.extname(to_copy), "*.{so,dll}")
+        String.replace_suffix(destination_file_path, Path.extname(file_to_copy), "*.{so,dll}")
         |> Path.wildcard()
         |> List.first()
 
@@ -82,6 +114,24 @@ defmodule Burrito.Steps.Patch.CopyERTS do
         "Installed NIF library #{destination_file_path}"
       )
     end)
+  end
+
+  defp find_erts_dir(erts_location) do
+    recursively_find_dir([erts_location], ~r/^erts-.*$/)
+  end
+
+  defp erts_not_found_message(erts_location) do
+    entries =
+      case File.ls(erts_location) do
+        {:ok, names} -> names |> Enum.sort() |> Enum.join(", ")
+        {:error, reason} -> "unreadable (#{inspect(reason)})"
+      end
+
+    """
+    No erts-* directory found in custom ERTS at #{erts_location}.
+    Supported layouts: flat (erts-*/, lib/, ... at the top level) or wrapped (otp-*/erts-*/, otp-*/lib/, ...).
+    Top-level entries: #{entries}\
+    """
   end
 
   defp recursively_find_dir([], _target_dir_pattern), do: nil
