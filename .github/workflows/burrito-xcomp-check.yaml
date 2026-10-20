@@ -12,15 +12,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        host: [ubuntu-latest, macos-latest, macos-14]   # macos-14 is arm64
+        host: [ubuntu-26.04, macos-latest, macos-14]   # macos-14 is arm64
         zig: ["0.16.0"]
     steps:
       # Deps
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.3.0
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # mise does not auto-detect a Bob build for the ubuntu-26.04 runner image.
       - run: echo "MISE_ERLANG_PRECOMPILED_OS=ubuntu-26.04" >> "$GITHUB_ENV"
-        if: matrix.host == 'ubuntu-latest'
+        if: matrix.host == 'ubuntu-26.04'
 
       # Erlang, Elixir and Zig versions come from .tool-versions.
       - uses: jdx/mise-action@fc42bcc7ddbf51124c30f95a877a0c5168a3bfde # v5.2.1
@@ -37,7 +37,7 @@ jobs:
         uses: Homebrew/actions/setup-homebrew@4790763c0a3ba4036f72634dc079c4a7dfcd4878 # main
 
       - run: sudo apt-get -y install xz-utils
-        if: matrix.host == 'ubuntu-latest'
+        if: matrix.host == 'ubuntu-26.04'
 
       # Elixir comes from mise; brew elixir pulls a mismatched OTP.
       - run: brew install xz
@@ -45,7 +45,7 @@ jobs:
 
       # Restore Cache
       - uses: actions/cache/restore@6f8efc29b200d32929f49075959781ed54ec270c # v3.5.0
-        if: matrix.host == 'ubuntu-latest'
+        if: matrix.host == 'ubuntu-26.04'
         id: cache-restore-linux
         with:
           path: /home/runner/.cache/burrito_file_cache/
@@ -66,11 +66,11 @@ jobs:
       # Run unit tests (Args module) on at least one host — args parsing
       # is platform-independent.
       - name: mix deps.get
-        if: matrix.host == 'ubuntu-latest' && matrix.zig == '0.16.0'
+        if: matrix.host == 'ubuntu-26.04'
         run: mix deps.get
 
       - name: mix test
-        if: matrix.host == 'ubuntu-latest' && matrix.zig == '0.16.0'
+        if: matrix.host == 'ubuntu-26.04'
         run: mix test
 
       # Build Example CLI App
@@ -80,7 +80,7 @@ jobs:
 
       # Save Cache (Linux)
       - uses: actions/cache/save@6f8efc29b200d32929f49075959781ed54ec270c # v3.5.0
-        if: matrix.host == 'ubuntu-latest'
+        if: matrix.host == 'ubuntu-26.04'
         id: cache-save-linux
         with:
           path: /home/runner/.cache/burrito_file_cache/
@@ -116,7 +116,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        host: [ubuntu-latest, macos-latest]
+        host: [ubuntu-26.04, macos-latest]
         zig: ["0.16.0"]
     runs-on: windows-latest
     steps:
@@ -137,7 +137,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        host: [ubuntu-latest, macos-latest, macos-14]
+        host: [ubuntu-26.04, macos-latest, macos-14]
         zig: ["0.16.0"]
     runs-on: ubuntu-latest
     steps:
@@ -158,7 +158,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        host: [ubuntu-latest, macos-latest, macos-14]
+        host: [ubuntu-26.04, macos-latest, macos-14]
         zig: ["0.16.0"]
     runs-on: ${{ matrix.host == 'macos-14' && 'macos-14' || 'macos-latest' }}
     steps:
