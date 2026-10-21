@@ -12,58 +12,51 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        host: [ubuntu-latest, macos-latest, macos-14]   # macos-14 is arm64
-        zig: ["0.15.2", "0.16.0"]
-        exclude:
-          # macos-14 (arm64) is only needed to verify cross-compile from
-          # Apple Silicon. Skip the old Zig version there to save CI time.
-          - host: macos-14
-            zig: "0.15.2"
+        host: [ubuntu-26.04, macos-latest, macos-14]   # macos-14 is arm64
+        zig: ["0.16.0"]
     steps:
       # Deps
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: erlef/setup-beam@v1
-        if: matrix.host == 'ubuntu-latest'
-        with:
-          otp-version: "27.3"
-          elixir-version: "1.18.3"
+      # mise does not auto-detect a Bob build for the ubuntu-26.04 runner image.
+      - run: echo "MISE_ERLANG_PRECOMPILED_OS=ubuntu-26.04" >> "$GITHUB_ENV"
+        if: matrix.host == 'ubuntu-26.04'
 
-      - uses: erlef/setup-beam@v1
-        if: matrix.host == 'macos-latest' || matrix.host == 'macos-14'
+      # Erlang, Elixir and Zig versions come from .tool-versions.
+      - uses: jdx/mise-action@fc42bcc7ddbf51124c30f95a877a0c5168a3bfde # v5.2.1
         with:
-          otp-version: "27.3"
-          elixir-version: "1.18.3"
+          version: 2026.10.11
+        env:
+          MISE_ERLANG_COMPILE: "false"
 
-      - uses: goto-bus-stop/setup-zig@v2
-        with:
-          version: ${{ matrix.zig }}
+      - run: mix local.hex --force && mix local.rebar --force
 
       - name: Set up Homebrew
         if: matrix.host == 'macos-latest' || matrix.host == 'macos-14'
         id: set-up-homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@4790763c0a3ba4036f72634dc079c4a7dfcd4878 # main
 
       - run: sudo apt-get -y install xz-utils
-        if: matrix.host == 'ubuntu-latest'
+        if: matrix.host == 'ubuntu-26.04'
 
-      - run: brew install elixir xz
+      # Elixir comes from mise; brew elixir pulls a mismatched OTP.
+      - run: brew install xz
         if: matrix.host == 'macos-latest' || matrix.host == 'macos-14'
 
       # Restore Cache
-      - uses: actions/cache/restore@v3
-        if: matrix.host == 'ubuntu-latest'
+      - uses: actions/cache/restore@6f8efc29b200d32929f49075959781ed54ec270c # v3.5.0
+        if: matrix.host == 'ubuntu-26.04'
         id: cache-restore-linux
         with:
           path: /home/runner/.cache/burrito_file_cache/
           key: burrito-download-cache_${{ matrix.host }}_${{ matrix.zig }}
-      - uses: actions/cache/restore@v3
+      - uses: actions/cache/restore@6f8efc29b200d32929f49075959781ed54ec270c # v3.5.0
         if: matrix.host == 'macos-latest'
         id: cache-restore-macos-intel
         with:
           path: /Users/runner/Library/Caches/burrito_file_cache/
           key: burrito-download-cache_${{ matrix.host }}_${{ matrix.zig }}
-      - uses: actions/cache/restore@v3
+      - uses: actions/cache/restore@6f8efc29b200d32929f49075959781ed54ec270c # v3.5.0
         if: matrix.host == 'macos-14'
         id: cache-restore-macos-arm
         with:
@@ -72,8 +65,12 @@ jobs:
 
       # Run unit tests (Args module) on at least one host — args parsing
       # is platform-independent.
+      - name: mix deps.get
+        if: matrix.host == 'ubuntu-26.04'
+        run: mix deps.get
+
       - name: mix test
-        if: matrix.host == 'ubuntu-latest' && matrix.zig == '0.16.0'
+        if: matrix.host == 'ubuntu-26.04'
         run: mix test
 
       # Build Example CLI App
@@ -82,22 +79,22 @@ jobs:
         run: "mix deps.get && mix release"
 
       # Save Cache (Linux)
-      - uses: actions/cache/save@v3
-        if: matrix.host == 'ubuntu-latest'
+      - uses: actions/cache/save@6f8efc29b200d32929f49075959781ed54ec270c # v3.5.0
+        if: matrix.host == 'ubuntu-26.04'
         id: cache-save-linux
         with:
           path: /home/runner/.cache/burrito_file_cache/
           key: burrito-download-cache_${{ matrix.host }}_${{ matrix.zig }}
 
       # Save Cache (macOS)
-      - uses: actions/cache/save@v3
+      - uses: actions/cache/save@6f8efc29b200d32929f49075959781ed54ec270c # v3.5.0
         if: matrix.host == 'macos-latest'
         id: cache-save-macos-intel
         with:
           path: /Users/runner/Library/Caches/burrito_file_cache/
           key: burrito-download-cache_${{ matrix.host }}_${{ matrix.zig }}
 
-      - uses: actions/cache/save@v3
+      - uses: actions/cache/save@6f8efc29b200d32929f49075959781ed54ec270c # v3.5.0
         if: matrix.host == 'macos-14'
         id: cache-save-macos-arm
         with:
@@ -106,9 +103,9 @@ jobs:
 
       # Upload Wrapped Binaries
       - name: Upload Binaries
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: burrito_${ matrix.host }_${ matrix.zig }_host_bins
+          name: burrito_${{ matrix.host }}_${{ matrix.zig }}_host_bins
           path: ./examples/**/burrito_out/*
           retention-days: 1
 
@@ -119,14 +116,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        host: [ubuntu-latest, macos-latest]
-        zig: ["0.15.2", "0.16.0"]
+        host: [ubuntu-26.04, macos-latest]
+        zig: ["0.16.0"]
     runs-on: windows-latest
     steps:
       - name: Download a single artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: burrito_${ matrix.host }_${ matrix.zig }_host_bins
+          name: burrito_${{ matrix.host }}_${{ matrix.zig }}_host_bins
       # Run with no args first, then with args, to verify the ADO_ARGS
       # env var fallback in Burrito.Util.Args works on Windows too.
       - name: Run with no args
@@ -140,14 +137,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        host: [ubuntu-latest, macos-latest, macos-14]
-        zig: ["0.15.2", "0.16.0"]
+        host: [ubuntu-26.04, macos-latest, macos-14]
+        zig: ["0.16.0"]
     runs-on: ubuntu-latest
     steps:
       - name: Download a single artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: burrito_${ matrix.host }_${ matrix.zig }_host_bins
+          name: burrito_${{ matrix.host }}_${{ matrix.zig }}_host_bins
       - name: Run with no args
         run: |
           chmod +x cli_example/burrito_out/example_cli_app_linux
@@ -161,14 +158,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        host: [ubuntu-latest, macos-latest, macos-14]
-        zig: ["0.15.2", "0.16.0"]
+        host: [ubuntu-26.04, macos-latest, macos-14]
+        zig: ["0.16.0"]
     runs-on: ${{ matrix.host == 'macos-14' && 'macos-14' || 'macos-latest' }}
     steps:
       - name: Download a single artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: burrito_${ matrix.host }_${ matrix.zig }_host_bins
+          name: burrito_${{ matrix.host }}_${{ matrix.zig }}_host_bins
       - name: Run with no args
         run: |
           chmod +x cli_example/burrito_out/example_cli_app_macos
